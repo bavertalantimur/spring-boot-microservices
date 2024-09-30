@@ -22,7 +22,7 @@ import java.util.UUID; // Benzersiz tanımlayıcı oluşturmak için kullanılan
 public class OrderService {
 
     private final OrderRepository orderRepository; // Sipariş veritabanı erişimi için repository
-    private final WebClient webClient; // Diğer mikro hizmetlere HTTP istekleri yapmak için kullanılan WebClient
+    private final WebClient.Builder webClientBuilder; // Diğer mikro hizmetlere HTTP istekleri yapmak için kullanılan WebClient
     private final OrderMapper orderMapper;
     // Siparişi oluşturmak için ana metot
     public void placeOrder(OrderRequest orderRequest) {
@@ -45,7 +45,7 @@ public class OrderService {
                 .toList(); // Sonuçları liste olarak topla
 
         // Envanter servisine mevcut ürünlerin stok durumunu kontrol etmek için HTTP isteği gönder
-        InventoryResponse[] inventoryResponseArray = webClient.get()
+        InventoryResponse[] inventoryResponseArray = webClientBuilder.build().get()
                 .uri("http://localhost:8082/api/inventory",
                         uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()) // Envanter servisine SKU kodlarını göndererek sorgu yap
                 .retrieve() // İsteği gönder ve yanıtı al

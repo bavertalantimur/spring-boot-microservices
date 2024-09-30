@@ -8,7 +8,9 @@ import org.springframework.boot.SpringApplication; // Spring uygulaması başlat
 import org.springframework.boot.autoconfigure.SpringBootApplication; // Otomatik yapılandırmayı etkinleştirmek için anotasyonu içe aktarır
 import org.springframework.context.annotation.Bean; // Spring konteynerine bean tanımlamak için anotasyonu içe aktarır
 
-@SpringBootApplication // Uygulamanın ana sınıfı, otomatik yapılandırma ve bileşen taramasını etkinleştirir
+@SpringBootApplication
+// Uygulamanın ana sınıfı, otomatik yapılandırma ve bileşen taramasını etkinleştirir
+
 public class InventoryServiceApplication {
 
 	public static void main(String[] args) {
