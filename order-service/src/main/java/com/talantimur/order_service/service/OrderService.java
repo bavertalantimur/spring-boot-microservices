@@ -46,7 +46,7 @@ public class OrderService {
 
         // Envanter servisine mevcut ürünlerin stok durumunu kontrol etmek için HTTP isteği gönder
         InventoryResponse[] inventoryResponseArray = webClientBuilder.build().get()
-                .uri("http://localhost:8082/api/inventory",
+                .uri("http://localhost:8083/api/inventory",
                         uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()) // Envanter servisine SKU kodlarını göndererek sorgu yap
                 .retrieve() // İsteği gönder ve yanıtı al
                 .bodyToMono(InventoryResponse[].class) // Yanıtın gövdesini InventoryResponse dizisine dönüştür
