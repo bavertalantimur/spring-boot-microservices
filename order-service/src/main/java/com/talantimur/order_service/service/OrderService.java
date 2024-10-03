@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service; // Bu sınıfın bir servis katma
 import org.springframework.transaction.annotation.Transactional; // Metotların işlem (transaction) sınırları içinde çalışmasını sağlar
 import org.springframework.web.reactive.function.client.WebClient; // Diğer mikro hizmetlere HTTP istekleri yapmak için kullanılan asenkron web istemcisi
 
+import java.time.Duration;
 import java.util.Arrays; // Dizilerle çalışmak için yardımcı sınıf
 import java.util.List; // Liste kullanımı
 import java.util.UUID; // Benzersiz tanımlayıcı oluşturmak için kullanılan sınıf
@@ -25,7 +26,7 @@ public class OrderService {
     private final WebClient.Builder webClientBuilder; // Diğer mikro hizmetlere HTTP istekleri yapmak için kullanılan WebClient
     private final OrderMapper orderMapper;
     // Siparişi oluşturmak için ana metot
-    public void placeOrder(OrderRequest orderRequest) {
+    public String placeOrder(OrderRequest orderRequest) {
         Order order = new Order(); // Yeni bir Order nesnesi oluştur
         order.setOrderNumber(UUID.randomUUID().toString()); // Sipariş için benzersiz bir numara oluştur (UUID)
 
@@ -45,10 +46,12 @@ public class OrderService {
                 .toList(); // Sonuçları liste olarak topla
 
         // Envanter servisine mevcut ürünlerin stok durumunu kontrol etmek için HTTP isteği gönder
+
+
         InventoryResponse[] inventoryResponseArray = webClientBuilder.build().get()
-                .uri("http://localhost:8083/api/inventory",
+                .uri("http://inventory-service/api/inventory",
                         uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()) // Envanter servisine SKU kodlarını göndererek sorgu yap
-                .retrieve() // İsteği gönder ve yanıtı al
+                .retrieve()// İsteği gönder ve yanıtı al
                 .bodyToMono(InventoryResponse[].class) // Yanıtın gövdesini InventoryResponse dizisine dönüştür
                 .block(); // Yanıtı almak için isteği blokla (bekle)
         // Tüm ürünlerin stokta olup olmadığını kontrol et
@@ -58,9 +61,10 @@ public class OrderService {
         // Eğer tüm ürünler stokta mevcutsa, siparişi veritabanına kaydet
         if (allProductInStock) {
             orderRepository.save(order); // Siparişi veritabanına kaydet
+            return "Order Placed Successfully";
         } else {
             // Eğer ürün stokta değilse bir hata fırlat
-            throw new IllegalArgumentException("Product is not in stock");
+            return "Noo";
         }
     }
 
