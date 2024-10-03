@@ -1,5 +1,7 @@
 package com.talantimur.order_service.service;
 
+import brave.Span;
+import brave.Tracer;
 import com.talantimur.order_service.Mapper.OrderMapper;
 import com.talantimur.order_service.dto.InventoryResponse; // Envanter durumunu almak için kullanılan DTO sınıfı
 import com.talantimur.order_service.dto.OrderLineItemsDto; // Sipariş satır öğeleri için veri transfer nesnesi
@@ -25,6 +27,7 @@ public class OrderService {
     private final OrderRepository orderRepository; // Sipariş veritabanı erişimi için repository
     private final WebClient.Builder webClientBuilder; // Diğer mikro hizmetlere HTTP istekleri yapmak için kullanılan WebClient
     private final OrderMapper orderMapper;
+    private final Tracer tracer;
     // Siparişi oluşturmak için ana metot
     public String placeOrder(OrderRequest orderRequest) {
         Order order = new Order(); // Yeni bir Order nesnesi oluştur
@@ -47,25 +50,31 @@ public class OrderService {
 
         // Envanter servisine mevcut ürünlerin stok durumunu kontrol etmek için HTTP isteği gönder
 
+        Span inventoryServiceLookup = tracer.nextSpan().name("InventoryServiceLookup");
+        try (Tracer.SpanInScope isLookup = tracer.withSpanInScope(inventoryServiceLookup.start())){
+            inventoryServiceLookup.tag("call", "inventory-service");
+            InventoryResponse[] inventoryResponseArray = webClientBuilder.build().get()
+                    .uri("http://inventory-service/api/inventory",
+                            uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()) // Envanter servisine SKU kodlarını göndererek sorgu yap
+                    .retrieve()// İsteği gönder ve yanıtı al
+                    .bodyToMono(InventoryResponse[].class) // Yanıtın gövdesini InventoryResponse dizisine dönüştür
+                    .block(); // Yanıtı almak için isteği blokla (bekle)
+            // Tüm ürünlerin stokta olup olmadığını kontrol et
+            boolean allProductInStock = Arrays.stream(inventoryResponseArray)
+                    .allMatch(InventoryResponse::isInStock); // Her ürün stokta mı diye kontrol et
 
-        InventoryResponse[] inventoryResponseArray = webClientBuilder.build().get()
-                .uri("http://inventory-service/api/inventory",
-                        uriBuilder -> uriBuilder.queryParam("skuCode", skuCodes).build()) // Envanter servisine SKU kodlarını göndererek sorgu yap
-                .retrieve()// İsteği gönder ve yanıtı al
-                .bodyToMono(InventoryResponse[].class) // Yanıtın gövdesini InventoryResponse dizisine dönüştür
-                .block(); // Yanıtı almak için isteği blokla (bekle)
-        // Tüm ürünlerin stokta olup olmadığını kontrol et
-        boolean allProductInStock = Arrays.stream(inventoryResponseArray)
-                .allMatch(InventoryResponse::isInStock); // Her ürün stokta mı diye kontrol et
-
-        // Eğer tüm ürünler stokta mevcutsa, siparişi veritabanına kaydet
-        if (allProductInStock) {
-            orderRepository.save(order); // Siparişi veritabanına kaydet
-            return "Order Placed Successfully";
-        } else {
-            // Eğer ürün stokta değilse bir hata fırlat
-            return "Noo";
+            // Eğer tüm ürünler stokta mevcutsa, siparişi veritabanına kaydet
+            if (allProductInStock) {
+                orderRepository.save(order); // Siparişi veritabanına kaydet
+                return "Order Placed Successfully";
+            } else {
+                // Eğer ürün stokta değilse bir hata fırlat
+                throw new IllegalArgumentException("Product is not in stock, please try again later");
+            }
+        }finally {
+            inventoryServiceLookup.flush();
         }
+
     }
 
     // OrderLineItemsDto'yu OrderLineItems nesnesine dönüştüren yardımcı metot
