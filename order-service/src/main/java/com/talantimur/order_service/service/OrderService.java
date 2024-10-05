@@ -6,10 +6,12 @@ import com.talantimur.order_service.Mapper.OrderMapper;
 import com.talantimur.order_service.dto.InventoryResponse; // Envanter durumunu almak için kullanılan DTO sınıfı
 import com.talantimur.order_service.dto.OrderLineItemsDto; // Sipariş satır öğeleri için veri transfer nesnesi
 import com.talantimur.order_service.dto.OrderRequest; // Sipariş isteği için veri transfer nesnesi
+import com.talantimur.order_service.event.OrderPlacedEvent;
 import com.talantimur.order_service.model.Order; // Sipariş model sınıfı
 import com.talantimur.order_service.model.OrderLineItems; // Sipariş satır öğeleri model sınıfı
 import com.talantimur.order_service.repository.OrderRepository; // Siparişler için JPA repository arayüzü
 import lombok.RequiredArgsConstructor; // Otomatik constructor oluşturma (final alanlar için dependency injection)
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service; // Bu sınıfın bir servis katmanı olduğunu belirtir
 import org.springframework.transaction.annotation.Transactional; // Metotların işlem (transaction) sınırları içinde çalışmasını sağlar
 import org.springframework.web.reactive.function.client.WebClient; // Diğer mikro hizmetlere HTTP istekleri yapmak için kullanılan asenkron web istemcisi
@@ -28,6 +30,7 @@ public class OrderService {
     private final WebClient.Builder webClientBuilder; // Diğer mikro hizmetlere HTTP istekleri yapmak için kullanılan WebClient
     private final OrderMapper orderMapper;
     private final Tracer tracer;
+    private  final KafkaTemplate<String,OrderPlacedEvent> kafkaTemplate;
     // Siparişi oluşturmak için ana metot
     public String placeOrder(OrderRequest orderRequest) {
         Order order = new Order(); // Yeni bir Order nesnesi oluştur
@@ -66,6 +69,7 @@ public class OrderService {
             // Eğer tüm ürünler stokta mevcutsa, siparişi veritabanına kaydet
             if (allProductInStock) {
                 orderRepository.save(order); // Siparişi veritabanına kaydet
+                kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getOrderNumber()));
                 return "Order Placed Successfully";
             } else {
                 // Eğer ürün stokta değilse bir hata fırlat
